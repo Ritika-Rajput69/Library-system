@@ -1,0 +1,176 @@
+# import mysql.connector
+#
+# # Create the connection object
+# myconn = mysql.connector.connect(host="localhost", user="root", passwd="Ritika@1411")
+#
+# # printing the connection object
+# print(myconn)
+#
+# cursor = myconn.cursor()
+# cursor.execute("CREATE DATABASE geeksforgeeks")
+#
+# DESKTOP-L5534HF\SQLEXPRESS
+import pyodbc
+from datetime import datetime
+
+class Library:
+    def __init__(self, server, database):
+        self.connection_string = (
+            "DRIVER=SQL Server;"
+            "Server=" + server + ";"
+            "Database=" + database + ";"
+            "Trusted_Connection=yes;"
+        )
+        self.connection = None
+        self.cursor = None
+
+    def connect(self):
+        try:
+            self.connection = pyodbc.connect(self.connection_string)
+            self.cursor = self.connection.cursor()
+            print("Connected to the database.")
+        except pyodbc.Error as e:
+            print(f"Error connecting to the database: {e}")
+
+    def add_book(self, name, author, quantity):
+        try:
+            self.cursor.execute("INSERT INTO Book_information (name, author, quantity) VALUES (?, ?, ?)", (name, author, quantity))
+            self.connection.commit()
+            print("Book added successfully.")
+        except pyodbc.Error as e:
+            print(f"Error adding book: {e}")
+
+    def issue_book(self, book_id, user_id):
+        try:
+            issue_date = datetime.now().strftime("%Y-%m-%d")  # Get current date
+            self.cursor.execute("INSERT INTO Card_details (user_id, book_id, issue_date) VALUES (?, ?, ?)", (user_id, book_id, issue_date))
+            self.connection.commit()
+
+            # Fetch user's name
+            self.cursor.execute("SELECT name FROM User_information WHERE user_id = ?", (user_id,))
+            user_name = self.cursor.fetchone()[0]
+
+            print("Book issued successfully.")
+            print(f"Issued to: {user_name} (ID: {user_id}), Book ID: {book_id}, Date: {issue_date}")
+        except pyodbc.Error as e:
+            print(f"Error issuing book: {e}")
+
+    def return_book(self, book_id):
+        try:
+            return_date = datetime.now().strftime("%Y-%m-%d")  # Get current date
+            self.cursor.execute("UPDATE Card_details SET return_date = ? WHERE book_id = ? AND return_date IS NULL", (return_date, book_id))
+            self.connection.commit()
+            print("Book returned successfully.")
+        except pyodbc.Error as e:
+            print(f"Error returning book: {e}")
+
+    def display_all_books(self):
+        try:
+            self.cursor.execute("SELECT * FROM Book_information")
+            books = self.cursor.fetchall()
+            book_dict = {}
+            for book in books:
+                book_dict[book.book_id] = {
+                    'name': book.name,
+                    'author': book.author,
+                    'quantity': book.quantity
+                }
+            return book_dict
+        except pyodbc.Error as e:
+            print(f"Error displaying books: {e}")
+
+    def display_issued_books(self):
+        try:
+            self.cursor.execute("SELECT c.transaction_id, u.name AS user_name, b.name AS book_name, b.author, c.issue_date FROM Card_details c INNER JOIN User_information u ON c.user_id = u.user_id INNER JOIN Book_information b ON c.book_id = b.book_id WHERE c.return_date IS NULL")
+            issued_books = self.cursor.fetchall()
+            if issued_books:
+                print("Issued Books in the Library:")
+                for book in issued_books:
+                    print(f"Transaction ID: {book.transaction_id}, User: {book.user_name}, Book: {book.book_name}, Author: {book.author}, Issue Date: {book.issue_date}")
+            else:
+                print("No books are currently issued.")
+        except pyodbc.Error as e:
+            print(f"Error displaying issued books: {e}")
+
+    def display_user_information(self, user_id):
+        try:
+            self.cursor.execute("SELECT * FROM User_information WHERE user_id = ?", (user_id,))
+            user_info = self.cursor.fetchone()
+            if user_info:
+                print("User Information:")
+                print(user_info)
+            else:
+                print("User not found.")
+        except pyodbc.Error as e:
+            print(f"Error displaying user information: {e}")
+
+    def add_user(self, name, email, phone):
+        try:
+            # Check if the user already exists
+            self.cursor.execute("SELECT COUNT(*) FROM User_information WHERE email = ? OR phone_number = ?", (email, phone))
+            if self.cursor.fetchone()[0] > 0:
+                print("You are already a user. Please log in.")
+                return False
+            else:
+                self.cursor.execute("INSERT INTO User_information (name, email, phone_number) VALUES (?, ?, ?)", (name, email, phone))
+                self.connection.commit()
+                print("User added successfully.")
+                return True
+        except pyodbc.Error as e:
+            print(f"Error adding user: {e}")
+
+def main():
+    server = "DESKTOP-L5534HF\\SQLEXPRESS"
+    database = "library"
+
+    library = Library(server, database)
+    library.connect()
+
+    while True:
+        print("\n--- Library Management System ---")
+        print("1. Add a user")
+        print("2. Issue a book")
+        print("3. Return a book")
+        print("4. Display issued books")
+        print("5. Display all books")
+        print("6. Display user information")
+        print("7. Exit")
+
+        choice = input("Enter your choice: ")
+
+        if choice == '1':
+            name = input("Enter user name: ")
+            email = input("Enter user email: ")
+            phone = input("Enter user phone number: ")
+            added = library.add_user(name, email, phone)
+            if not added:
+                # If user already exists, prompt for login
+                print("Please log in.")
+                email = input("Enter your email: ")
+                phone = input("Enter your phone number: ")
+                # Additional logic for login here
+        elif choice == '2':
+            book_id = int(input("Enter book ID to issue: "))
+            user_id = int(input("Enter user ID: "))
+            library.issue_book(book_id, user_id)
+        elif choice == '3':
+            book_id = int(input("Enter book ID to return: "))
+            library.return_book(book_id)
+        elif choice == '4':
+            library.display_issued_books()
+        elif choice == '5':
+            all_books = library.display_all_books()
+            print("All Books in the Library:")
+            for book_id, book_info in all_books.items():
+                print(f"Book ID: {book_id}, Name: {book_info['name']}, Author: {book_info['author']}, Quantity: {book_info['quantity']}")
+        elif choice == '6':
+            user_id = int(input("Enter user ID: "))
+            library.display_user_information(user_id)
+        elif choice == '7':
+            print("Exiting the program. Goodbye!")
+            break
+        else:
+            print("Invalid choice. Please choose again.")
+
+if __name__ == "__main__":
+    main()
