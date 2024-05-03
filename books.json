@@ -1,0 +1,16 @@
+[
+    {
+        "book_id": 1,
+        "title": "Ritika",
+        "author": "J.K",
+        "is_issued": false,
+        "issued_to": null
+    },
+    {
+        "book_id": 2,
+        "title": "Riti",
+        "author": "J>K",
+        "is_issued": false,
+        "issued_to": null
+    }
+]
